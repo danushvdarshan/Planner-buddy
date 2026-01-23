@@ -1,159 +1,200 @@
+# Scheduling Algorithm (v1)
 
-# Prompt-Based Development of the Scheduling Algorithm
+## 1. Scope & Philosophy
 
-This document captures how the Planner Buddy scheduling algorithm
-was developed using prompt engineering and iterative human refinement.
+This document defines the **v1 scheduling logic** for the planner.
 
-It records the evolution from an AI-generated solution to a
-final, deterministic algorithm specification used in Planner Buddy v1.
+Design goals:
 
----
+* Be **predictable** and **transparent** to users
+* Respect **fixed user commitments** (duration is mandatory)
+* Allow **unused free time** without force-filling
+* Keep the model simple, extensible, and UI-driven
 
-## 1. Source Prompt
+Future features (intentionally excluded from v1):
 
-The scheduling logic was initially generated using the following prompt:
-
-`prompts/scheduling_algorithm_prompt.md`
-
-The prompt defined:
-- Weekly time representation (7 days × 24 slots)
-- Fixed commitments
-- Task priorities and durations
-- Deterministic, explainable behavior
-- Explicit constraints and exclusions
-
-The prompt did not prescribe implementation details, allowing the AI
-to reason about the algorithm structure.
+* Auto task stretching or shrinking
+* Deadlines, dependencies, or soft constraints
+* AI-driven reprioritization
 
 ---
 
-## 2. Initial AI-Generated Approach
+## 2. Core Assumptions (Frozen for v1)
 
-Based on the prompt, the AI proposed a deterministic, priority-first
-scheduling strategy.
+### 2.1 Time Slots
 
-The key characteristics of the AI-generated approach were:
-- Representation of the week as one-hour slots
-- Placement of fixed commitments before tasks
-- Strict priority ordering (High → Medium → Low)
-- Contiguous allocation of slots equal to task duration
-- Sequential scanning of time slots from the beginning of the week
-- Explicit handling of unscheduled tasks
+* A **slot** is a fixed unit of time
+* Slot duration is **user-defined** via UI
+* Allowed values (v1):
 
-This approach satisfied the core constraints of Planner Buddy v1.
+  * `30 minutes`
+  * `1 hour`
+
+All scheduling is done in **number of slots**, not clock time.
 
 ---
 
-## 3. Human Refinements and Design Decisions
+### 2.2 Task Requirements
 
-After reviewing the AI-generated solution, several refinements were
-introduced through human judgment and product considerations.
+Every task **must** define:
 
-### 3.1 Task Duration as a Mandatory Constraint
-Each task must explicitly specify the number of required one-hour slots.
-Tasks are never expanded to fill unused time.
+| Field          | Type        | Required | Notes                     |
+| -------------- | ----------- | -------- | ------------------------- |
+| task_name      | string      | ✅        | Display name              |
+| priority       | categorical | ✅        | e.g., High / Medium / Low |
+| duration_slots | integer     | ✅        | Fixed, non-negotiable     |
 
-This prevents artificial over-allocation and ensures visible free
-capacity in the weekly schedule.
-
-### 3.2 Priority Dominance
-Task priority strictly governs scheduling order, regardless of task
-duration or total available free time.
-
-Longer tasks do not imply higher importance.
-
-### 3.3 Earliest-First and Same-Day Preference
-Free slots are scanned from Monday morning to Sunday night.
-When possible, contiguous slots within the same day are preferred to
-reduce fragmentation.
-
-### 3.4 Transparency for Unscheduled Tasks
-Tasks that cannot be scheduled remain unassigned.
-Each such task is reported with an explicit reason, ensuring user trust
-and system explainability.
+Optional fields are deliberately excluded in v1.
 
 ---
 
-## 4. Final Scheduling Logic
+### 2.3 Priority Model
 
-The finalized scheduling process for Planner Buddy v1 follows these steps:
+* Priority is **categorical** at the user level
+* Backend will map categories → numeric weights later
+* Priority influences **ordering**, not duration
 
-1. Initialize a 7 × 24 weekly grid.
-2. Mark all fixed commitments as occupied.
-3. Identify contiguous blocks of free slots.
-4. Sort tasks by:
-   - Priority (High → Medium → Low)
-   - Duration (descending within each priority)
-5. For each task:
-   - Scan free slots from earliest to latest.
-   - Assign the task to the first suitable contiguous block.
-   - Mark the assigned slots as occupied.
-6. If no suitable block exists:
-   - Mark the task as unscheduled and record the reason.
-7. Output the final schedule, unscheduled tasks, and remaining free slots.
+Example (internal mapping – not exposed):
+
+* High → 3
+* Medium → 2
+* Low → 1
 
 ---
 
-## 5. Final Pseudocode (v1)
+### 2.4 Free Slots
 
-initialize weekly_grid[7][24]
+* If available slots > required slots:
 
-mark fixed_commitments as occupied
+  * Remaining slots are left **unassigned**
+  * Displayed as **Free / Available**
 
-group tasks by priority: High, Medium, Low
-
-for each priority_group in [High, Medium, Low]:
-	sort priority_group by duration descending
-
-	for each task in priority_group:
-    		block = find_earliest_contiguous_free_block(
-                	weekly_grid,
-                	task.duration
-            		)
-
-    		if block exists:
-        		assign task to block
-        		mark block as occupied
-    		else:
-        		record task as unscheduled
-
+No auto-filling, no stretching.
 
 ---
 
-## 6. Explicit Exclusions (Planner Buddy v1)
+## 3. Inputs
 
-The following features are intentionally excluded in v1:
-- Deadlines
-- Energy levels
-- Task dependencies
-- Preferred timing or time windows
-- Task splitting
+### 3.1 Weekly Slot Capacity
 
-These exclusions keep the system deterministic and explainable.
+```
+TOTAL_SLOTS = number of available slots in the planning window
+```
 
----
-
-## 7. Rationale for Prompt-Based Development
-
-Using prompt-based development allowed:
-- Rapid generation of a correct baseline algorithm
-- Clear inspection of AI reasoning
-- Iterative refinement through human feedback
-- Separation between AI exploration and final system specification
-
-The finalized algorithm is documented separately in
-`docs/scheduling_algorithm.md` as the authoritative reference.
+Provided by UI based on user availability.
 
 ---
 
-## 8. Future Iterations
+### 3.2 Task List
 
-Future versions of Planner Buddy may introduce:
-- Soft timing preferences
-- Urgency and deadlines
-- Dependency-aware scheduling
-- User-driven re-optimization
+```
+TASKS = [
+  {
+    task_name: string,
+    priority: categorical,
+    duration_slots: integer
+  },
+  ...
+]
+```
 
-These enhancements will build upon the current deterministic core.
+---
 
+## 4. Scheduling Strategy (v1)
+
+### High-level idea
+
+1. Sort tasks by priority
+2. Assign slots greedily
+3. Stop when slots are exhausted
+4. Leave unused slots empty
+
+---
+
+## 5. Pseudocode
+
+```
+INPUT:
+  TASKS
+  TOTAL_SLOTS
+
+PROCESS:
+  1. Convert priority categories → numeric weights (internal)
+  2. Sort TASKS by priority (descending)
+  3. remaining_slots = TOTAL_SLOTS
+  4. schedule = empty list
+
+  5. FOR each task in sorted TASKS:
+       IF task.duration_slots <= remaining_slots:
+          assign task to schedule
+          remaining_slots -= task.duration_slots
+       ELSE:
+          skip task (cannot partially assign)
+
+OUTPUT:
+  schedule
+  remaining_slots (shown as Free slots)
+```
+
+---
+
+## 6. Behavior Guarantees
+
+* Tasks are **never split**
+* Tasks are **never auto-resized**
+* Priority outranks duration
+* Empty time is a **feature**, not a bug
+
+---
+
+## 7. Example
+
+### Input
+
+```
+TOTAL_SLOTS = 50
+
+TASKS = [
+  { name: "Project Report", priority: High, duration_slots: 20 },
+  { name: "DSA Practice", priority: Medium, duration_slots: 10 },
+  { name: "Blog Writing", priority: Low, duration_slots: 5 }
+]
+```
+
+### Output
+
+```
+Scheduled Tasks:
+- Project Report (20)
+- DSA Practice (10)
+- Blog Writing (5)
+
+Free Slots:
+- 15
+```
+
+---
+
+## 8. What v1 Does NOT Solve
+
+* Importance vs urgency conflicts
+* Deadlines or time windows
+* Task dependencies
+* Context switching costs
+
+These will be introduced in future versions.
+
+---
+
+## 9. Next Planned Extensions
+
+* Deadline-aware scheduling
+* Dependency graphs
+* Soft constraints
+* AI-driven suggestions
+* Adaptive priority learning
+
+---
+
+**This document intentionally favors clarity over cleverness.**
 
