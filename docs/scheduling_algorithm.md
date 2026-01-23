@@ -104,7 +104,7 @@ group tasks by priority: High, Medium, Low
 
 for each priority_group in [High, Medium, Low]:
 	sort priority_group by duration descending
-	
+
 	for each task in priority_group:
     		block = find_earliest_contiguous_free_block(
                 	weekly_grid,
