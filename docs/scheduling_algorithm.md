@@ -1,65 +1,159 @@
 
-## Source
-This algorithm was generated using the prompt:
+# Prompt-Based Development of the Scheduling Algorithm
+
+This document captures how the Planner Buddy scheduling algorithm
+was developed using prompt engineering and iterative human refinement.
+
+It records the evolution from an AI-generated solution to a
+final, deterministic algorithm specification used in Planner Buddy v1.
+
+---
+
+## 1. Source Prompt
+
+The scheduling logic was initially generated using the following prompt:
+
 `prompts/scheduling_algorithm_prompt.md`
 
-## AI-Generated Explanation
-The scheduling process works in a deterministic, priority-first manner.
-First, the entire week is represented as a sequence of one-hour time slots across seven days. Each slot has a status indicating whether it is occupied by a fixed commitment or is free.
-All fixed, non-negotiable commitments are placed into the schedule first and marked as unavailable. These slots cannot be modified during scheduling.
-Next, user-defined tasks are grouped by priority. Tasks with High priority are processed first, followed by Medium, and then Low priority tasks.
-For each task, the algorithm scans the schedule to find a contiguous block of free time slots whose length matches the task’s required duration. The scan is performed in a fixed order (for example, from Monday morning to Sunday night) to ensure determinism.
-When a suitable contiguous block is found, the task is assigned to those slots, and the slots are marked as occupied. If no such block exists, the task is left unassigned.
-This process continues until all tasks have been considered. The final schedule contains all fixed commitments and the maximum number of tasks placed according to priority and availability.
+The prompt defined:
+- Weekly time representation (7 days × 24 slots)
+- Fixed commitments
+- Task priorities and durations
+- Deterministic, explainable behavior
+- Explicit constraints and exclusions
 
-## AI-Generated Pseudocode
-	initialize schedule as 7 × 24 time slots
+The prompt did not prescribe implementation details, allowing the AI
+to reason about the algorithm structure.
 
-	mark fixed commitment slots as occupied
+---
 
-	group tasks by priority in the order:
-    		High → Medium → Low
+## 2. Initial AI-Generated Approach
 
-	for each priority group:
-    		for each task in the group:
-        		required_slots = task.duration
+Based on the prompt, the AI proposed a deterministic, priority-first
+scheduling strategy.
 
-        		for each day from Monday to Sunday:
-            			for each hour from 0 to 23:
-                			if required_slots of consecutive free slots exist starting here:
-                    				assign task to those slots
-                    				mark those slots as occupied
-                   				break out of search loops
+The key characteristics of the AI-generated approach were:
+- Representation of the week as one-hour slots
+- Placement of fixed commitments before tasks
+- Strict priority ordering (High → Medium → Low)
+- Contiguous allocation of slots equal to task duration
+- Sequential scanning of time slots from the beginning of the week
+- Explicit handling of unscheduled tasks
 
-        		if task was not assigned:
-            			mark task as unassigned
+This approach satisfied the core constraints of Planner Buddy v1.
 
-	return final schedule and list of unassigned tasks
+---
 
-## Edge Cases Identified by AI
+## 3. Human Refinements and Design Decisions
 
-1) Insufficient free slots
-When total available free time is less than the sum of task durations.
+After reviewing the AI-generated solution, several refinements were
+introduced through human judgment and product considerations.
 
-2)Fragmented free time
-Free slots exist but are not contiguous enough to fit a task’s duration.
+### 3.1 Task Duration as a Mandatory Constraint
+Each task must explicitly specify the number of required one-hour slots.
+Tasks are never expanded to fill unused time.
 
-3)All slots occupied by fixed commitments
-No tasks can be scheduled.
+This prevents artificial over-allocation and ensures visible free
+capacity in the weekly schedule.
 
-4)Multiple tasks with equal priority
-Tasks are scheduled in the order they are provided by the user.
+### 3.2 Priority Dominance
+Task priority strictly governs scheduling order, regardless of task
+duration or total available free time.
 
-5)Tasks with duration longer than any available block
-Such tasks remain unassigned.
+Longer tasks do not imply higher importance.
 
-## Human Evaluation
-The algorithm correctly enforces priority-based scheduling and ensures
-deterministic behavior by scanning time slots in a fixed order.
+### 3.3 Earliest-First and Same-Day Preference
+Free slots are scanned from Monday morning to Sunday night.
+When possible, contiguous slots within the same day are preferred to
+reduce fragmentation.
 
-Its simplicity makes it easy to understand and debug, which is suitable
-for my initial idea of Planner Buddy which is essentially to make a compact and workable timetable. However, it does not yet account
-for user preferences such as preferred time windows or workload balancing.
-## Improvements / Refinements
-(To be filled in later iterations)
+### 3.4 Transparency for Unscheduled Tasks
+Tasks that cannot be scheduled remain unassigned.
+Each such task is reported with an explicit reason, ensuring user trust
+and system explainability.
+
+---
+
+## 4. Final Scheduling Logic
+
+The finalized scheduling process for Planner Buddy v1 follows these steps:
+
+1. Initialize a 7 × 24 weekly grid.
+2. Mark all fixed commitments as occupied.
+3. Identify contiguous blocks of free slots.
+4. Sort tasks by:
+   - Priority (High → Medium → Low)
+   - Duration (descending within each priority)
+5. For each task:
+   - Scan free slots from earliest to latest.
+   - Assign the task to the first suitable contiguous block.
+   - Mark the assigned slots as occupied.
+6. If no suitable block exists:
+   - Mark the task as unscheduled and record the reason.
+7. Output the final schedule, unscheduled tasks, and remaining free slots.
+
+---
+
+## 5. Final Pseudocode (v1)
+
+initialize weekly_grid[7][24]
+
+mark fixed_commitments as occupied
+
+group tasks by priority: High, Medium, Low
+
+for each priority_group in [High, Medium, Low]:
+	sort priority_group by duration descending
+	
+	for each task in priority_group:
+    		block = find_earliest_contiguous_free_block(
+                	weekly_grid,
+                	task.duration
+            		)
+
+    		if block exists:
+        		assign task to block
+        		mark block as occupied
+    		else:
+        		record task as unscheduled
+
+
+---
+
+## 6. Explicit Exclusions (Planner Buddy v1)
+
+The following features are intentionally excluded in v1:
+- Deadlines
+- Energy levels
+- Task dependencies
+- Preferred timing or time windows
+- Task splitting
+
+These exclusions keep the system deterministic and explainable.
+
+---
+
+## 7. Rationale for Prompt-Based Development
+
+Using prompt-based development allowed:
+- Rapid generation of a correct baseline algorithm
+- Clear inspection of AI reasoning
+- Iterative refinement through human feedback
+- Separation between AI exploration and final system specification
+
+The finalized algorithm is documented separately in
+`docs/scheduling_algorithm.md` as the authoritative reference.
+
+---
+
+## 8. Future Iterations
+
+Future versions of Planner Buddy may introduce:
+- Soft timing preferences
+- Urgency and deadlines
+- Dependency-aware scheduling
+- User-driven re-optimization
+
+These enhancements will build upon the current deterministic core.
+
 
