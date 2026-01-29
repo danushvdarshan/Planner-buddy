@@ -81,6 +81,18 @@ Available and unavailable time slots are inferred from the interactive weekly gr
 
 TOTAL_SLOTS and FREE_SLOTS are derived from this grid automatically; the user does not need to provide them manually.
 
+### 3.1.1 Protected Slots (System-Level Constraints)
+
+Some time slots are non-negotiable and must never be scheduled for tasks. 
+These include:
+- Sleep
+- Meals
+- Commute / travel
+- Fixed commitments (classes, meetings)
+
+All protected slots are **provided by the UI** in the weekly time grid. 
+The scheduler treats them as unavailable when assigning tasks.
+
 ---
 
 ### 3.2 Task List
@@ -111,28 +123,28 @@ TASKS = [
 
 ## 5. Pseudocode
 
-```
-INPUT:
-  TASKS
-  TOTAL_SLOTS
+initialize schedule as 7 × 24 time slots
 
-PROCESS:
-  1. Convert priority categories → numeric weights (internal)
-  2. Sort TASKS by priority (descending)
-  3. remaining_slots = TOTAL_SLOTS
-  4. schedule = empty list
+# 1. Mark protected slots as unavailable
+mark slots for sleep, meals, commute, and fixed commitments as occupied
 
-  5. FOR each task in sorted TASKS:
-       IF task.duration_slots <= remaining_slots:
-          assign task to schedule
-          remaining_slots -= task.duration_slots
-       ELSE:
-          skip task (cannot partially assign)
+group tasks by priority in the order: High → Medium → Low
 
-OUTPUT:
-  schedule
-  remaining_slots (shown as Free slots)
-```
+for each priority group:
+    for each task in the group:
+        required_slots = task.duration_slots
+
+        for each day from Monday to Sunday:
+            for each hour from 0 to 23:
+                if required_slots of consecutive free slots exist starting here:
+                    assign task to those slots
+                    mark those slots as occupied
+                    break out of search loops
+
+        if task was not assigned:
+            mark task as unassigned
+
+return final schedule and list of unassigned tasks
 
 ---
 
