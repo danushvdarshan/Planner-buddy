@@ -77,11 +77,9 @@ No auto-filling, no stretching.
 
 ### 3.1 Weekly Slot Capacity
 
-```
-TOTAL_SLOTS = number of available slots in the planning window
-```
+Available and unavailable time slots are inferred from the interactive weekly grid in the UI, where users mark fixed commitments.
 
-Provided by UI based on user availability.
+TOTAL_SLOTS and FREE_SLOTS are derived from this grid automatically; the user does not need to provide them manually.
 
 ---
 
