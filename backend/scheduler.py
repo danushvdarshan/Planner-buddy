@@ -1,6 +1,6 @@
 # scheduler.py
 
-from calendar_builder import build_calendar  # import the base calendar builder
+from calendar_builder import build_events  # import the base calendar builder
 
 def max_slots_per_task(free_slots):
     """
@@ -20,7 +20,7 @@ def generate_schedule(tasks, fixed_commitments, protected_slots):
     - unassigned_tasks: tasks that could not be fully scheduled
     """
     # Build base calendar using imported function
-    schedule = build_calendar(fixed_commitments, protected_slots)
+    schedule = build_events(fixed_commitments, protected_slots)
 
     # Sort tasks by priority
     priority_order = {"High": 1, "Medium": 2, "Low": 3}
