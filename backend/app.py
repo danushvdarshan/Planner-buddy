@@ -1,11 +1,13 @@
-from flask import Flask, request, jsonify
+
 from scheduler import generate_schedule
+from calendar_builder import build_events
+from flask import Flask, request, jsonify, send_from_directory, render_template
 
 app = Flask(__name__)
 
 @app.route("/")
-def index():
-    return "Planner Buddy Backend Running"
+def home():
+    return render_template("index.html")
 
 @app.route("/schedule", methods=["POST"])
 def run_schedule():
@@ -32,9 +34,11 @@ def run_schedule():
         fixed_commitments=fixed_commitments,
         protected_slots=protected_slots
     )
-
+    
+    events = build_events(schedule)
+    
     return jsonify({
-        "schedule": schedule,
+        "schedule": events,
         "unassigned_tasks": unassigned
     })
 
