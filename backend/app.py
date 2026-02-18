@@ -12,8 +12,9 @@ def home():
 @app.route("/schedule", methods=["POST"])
 def run_schedule():
     data = request.get_json()
+    non_negotiables = data.get("non_negotiables", [])
 
-    tasks = data["tasks"]
+    tasks = data.get("tasks",[])
 
     fixed_commitments = []
     for fc in data.get("fixed_commitments", []):
@@ -32,7 +33,8 @@ def run_schedule():
     schedule, unassigned = generate_schedule(
         tasks=tasks,
         fixed_commitments=fixed_commitments,
-        protected_slots=protected_slots
+        protected_slots=protected_slots,
+        non_negotiables=non_negotiables
     )
     
     events = build_events(schedule)

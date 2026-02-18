@@ -2,14 +2,38 @@
 <html>
 <head>
   <title>Planner Buddy</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
 
   <h1>Planner Buddy</h1>
 
+  <div id="task-container">
+    <div class="task-row">
+      <input type="text" class="task-name" placeholder="Task Name">
+
+      <select class="task-priority">
+        <option value="High">High</option>
+        <option value="Medium">Medium</option>
+        <option value="Low">Low</option>
+      </select>
+
+      <input type="number" class="task-duration" placeholder="Duration (hours)">
+    </div>
+  </div>
+
+  <br>
+
+  <button id="add-task">+ Add Task</button>
   <button id="generate">Generate Schedule</button>
 
-  <pre id="output"></pre>
+  <hr>
+
+  <div id="calendar"></div>
+  <hr>
+  <h3>Non-Negotiable Commitments</h3>
+  <div id="non-negotiable-container"></div>
+  <button id="add-non-negotiable">Add Commitment</button>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 
